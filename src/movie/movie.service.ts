@@ -4,10 +4,14 @@ import { ModelType } from '@typegoose/typegoose/lib/types'
 import { MovieModel } from './movie.model'
 import { UpdateMovieDto } from './dto/update-movie.dto'
 import { Types } from 'mongoose'
+import { TelegramService } from '../telegram/telegram.service'
 
 @Injectable()
 export class MovieService {
-	constructor(@InjectModel(MovieModel) private readonly MovieModel: ModelType<MovieModel>) {
+	constructor(
+		@InjectModel(MovieModel) private readonly MovieModel: ModelType<MovieModel>,
+		private readonly telegramService: TelegramService,
+	) {
 	}
 
 	async getAll(searchTerm?: string) {
@@ -97,7 +101,11 @@ export class MovieService {
 
 	async update(_id: string, dto: UpdateMovieDto) {
 
-		//todo: Telegram notifications
+		if (!dto.isSendTelegram) {
+			await this.sendNotification(dto)
+			dto.isSendTelegram = true
+		}
+
 		const updateDoc = await this.MovieModel.findByIdAndUpdate(_id, dto, {
 			new: true,
 		}).exec()
@@ -131,5 +139,28 @@ export class MovieService {
 		}
 
 		return deleteDoc
+	}
+
+	async sendNotification(dto: UpdateMovieDto) {
+		// if (process.env.NODE_ENV !== 'development') {
+		// 	await this.telegramService.sendPhoto(dto.poster)
+		// }
+
+		await this.telegramService.sendPhoto('https://avatars.mds.yandex.net/i?id=1b99f33ad54cb2e5c00df741d83f3b3f-4835514-images-thumbs&n=13')
+
+		const msg = `<b>${dto.title}</b>`
+
+		await this.telegramService.sendMessage(msg, {
+			reply_markup: {
+				inline_keyboard: [
+					[
+						{
+							url: 'https://yandex.ru',
+							text: '🍿 Go to watch!',
+						},
+					],
+				],
+			},
+		})
 	}
 }
